@@ -1,0 +1,54 @@
+name: Build bitcoind on push, or PR to master
+
+env:
+  APP: bitcoind
+
+on:
+  push:
+    branches: [ 'master' ]
+  pull_request:
+    branches: [ 'master' ]
+
+jobs:
+  build:
+    name: Build bitcoind
+    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm32v7
+          - arm64v8
+
+    env:
+      DOCKER_BUILDKIT: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ env.APP }}
+        run: >
+          docker build .
+          --build-arg "ARCH=${{ matrix.arch }}"
+          --tag       "$APP"
+
+      - name: Show built image details
+        run: docker images "$APP"
+
+      - name: Run sanity checks
+        env:
+          DIR: /usr/local/bin
+          MINOR: ${{ matrix.subver }}
+        run: |
+          run() {
+            ENTRYPOINT="${1:-$APP}"; shift
+            ARGS=${*:-"--version"}
+
+            printf "\n$ %s %s\n"  "$ENTRYPOINT"  "$ARGS"
+            docker run --rm  --entrypoint "$ENTRYPOINT"  "$APP"  $ARGS
+          }
+
+          docker inspect "$APP" | jq '.'
+          printf "\n"

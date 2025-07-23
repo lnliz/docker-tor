@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+    tor:
+        image: lnliz/tor:0.4.8.17
+        container_name: tor
+        volumes:
+            - ${PWD}/data:/etc/tor
+            - ${PWD}/data:/var/lib/tor
+            - ${PWD}/run:/var/run/tor
+        restart: on-failure
+        network_mode: host
+        stop_grace_period: 10m30s

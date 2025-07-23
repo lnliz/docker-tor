@@ -1,0 +1,157 @@
+name: Build & deploy on tag
+
+env:
+  APP: tor
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
+  # Capture groups within $TAG_FMT:
+  #   \1 => TAG       vX.Y.Z[.P]+build<N>
+  #   \2 => VERSION   vX.Y.Z[.P]
+  #   \3 => ignore    (captures dot, and last number-group in version)
+  #   \4 => BUILD     N
+  TAG_FMT: '^refs/tags/((v(.?[0-9]+){3,4})\+build([0-9]+))$'
+
+
+on:
+  push:
+    tags: [ '*' ]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+
+    strategy:
+      matrix:
+        arch:
+          - amd64
+          - arm32v7
+          - arm64v8
+
+    env:
+      DOCKER_BUILDKIT: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup environment
+        run: |
+          if ! echo "$GITHUB_REF" | grep -qE "$TAG_FMT"; then
+            echo "ERR: TAG must be in format: vX.Y.Z[.P]+build<N>"
+            exit 1
+          fi
+
+          VERSION="$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\2|")"
+
+          echo ::set-env name=TAG::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\1|")"
+          echo ::set-env name=BUILD::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\4|")"
+
+      - name: Print ENV VARs set above
+        run: |
+          printf "    APP: %s\n"  "$APP"
+          printf "   ARCH: %s\n"  "${{ matrix.arch }}"
+          printf "    TAG: %s\n"  "$TAG"
+          printf "  BUILD: %s\n"  "$BUILD"
+
+      - name: Build ${{ env.APP }}
+        run: >
+          docker build --no-cache .
+          --build-arg "ARCH=${{ matrix.arch }}"
+          --label     "arch=${{ matrix.arch }}"
+          --label     "commit=${{ github.sha }}"
+          --label     "git-tag=$TAG"
+          --label     "guilty=${{ github.actor }}"
+          --label     "repo-url=${{ github.repositoryUrl }}"
+          --tag       "$APP"
+
+      - name: Show built image details
+        run: docker images "$APP"
+
+      - name: Save built image into a .tgz file
+        run: |
+          mkdir -p images/
+
+          docker tag  "$APP"  "$APP:${{ matrix.arch }}"
+          docker save "$APP:${{ matrix.arch }}" | gzip > "images/docker-$APP-$TAG-${{ matrix.arch }}.tgz"
+
+      - name: Print sha256sum of built image
+        run: sha256sum images/*
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images-${{ matrix.arch }}
+          path: images/
+
+  deploy:
+    name: Publish docker images
+
+    runs-on: ubuntu-24.04
+    needs: build
+
+    env:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+
+    steps:
+      - name: Setup environment
+        run: |
+          echo ::set-env name=SLUG::"$(echo ${GITHUB_REPOSITORY,,} | sed 's/docker-//')"
+          echo ::set-env name=VERSION::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\2|")"
+          echo ::set-env name=BUILD::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\4|")"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          pattern: docker-images-*
+          merge-multiple: true
+          path: docker-images
+
+      - name: Print sha256sum of downloaded images
+        run: sha256sum docker-images/*
+
+      - name: Load images locally
+        run: find docker-images  -exec docker load -i "{}" \;
+
+      # No short tags.
+      - name: Version-tag all images
+        run: |
+          for arch in $(docker images "$APP" --format "{{.Tag}}"); do
+            docker tag  "$APP:$arch"  "$SLUG:$VERSION-$arch"
+          done
+
+      - name: List all tagged images
+        run: docker images "$SLUG"
+
+      - name: Login to Docker Hub
+        env:
+          DOCKER_USER: lnliz
+        run: |
+          echo "Logging in as ${DOCKER_USER}…"
+          echo "${{ secrets.DOCKER_PASS }}" | docker login -u="$DOCKER_USER" --password-stdin
+
+      - name: Push all images
+        run: docker images "$SLUG" --format "{{.Repository}}:{{.Tag}}" | xargs -I %  docker push %
+
+      - name: Create manifest
+        run: >
+          docker -D manifest create  "$SLUG:$VERSION" \
+            "$SLUG:$VERSION-amd64" \
+            "$SLUG:$VERSION-arm32v7" \
+            "$SLUG:$VERSION-arm64v8"
+
+      - name: Annotate images for manifest
+        run: |
+          docker manifest annotate "$SLUG:$VERSION" "$SLUG:$VERSION-arm32v7" --os linux --arch arm   --variant v7
+          docker manifest annotate "$SLUG:$VERSION" "$SLUG:$VERSION-arm64v8" --os linux --arch arm64 --variant v8
+
+      - name: Print manifest details
+        run: docker manifest inspect "$SLUG:$VERSION" | jq '.'
+
+      - name: Push manifest
+        run: docker manifest push "$SLUG:$VERSION"
+
+      - name: Create & print SHA256SUMS file
+        run: |
+          (cd docker-images;  sha256sum *) >> ./SHA256SUMS
+          cat ./SHA256SUMS
+
