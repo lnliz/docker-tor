@@ -25,8 +25,6 @@ Tor service as a docker container, supporting multiple platforms/architectures (
 
 ## Running
 
-> this assumes `0.4.8.17` version. But you can substitute this for others
-
 ### Command Line
 
 To run this from the command line you would need to create an example [config file](https://github.com/torproject/tor/blob/master/src/config/torrc.sample.in) or use the [cut down config file](https://raw.githubusercontent.com/lnliz/docker-tor/master/torrc-dist) in this repo.
@@ -57,10 +55,20 @@ services:
         image: lnliz/tor:0.4.8.17
         container_name: tor
         volumes:
-            - ${PWD}/data:/etc/tor
-            - ${PWD}/data:/var/lib/tor
-            - ${PWD}/run:/var/run/tor
+            - ${PWD}/tor:/etc/tor
+            - ${PWD}/tor:/var/lib/tor
+            - ${PWD}/tor-run:/var/run/tor
         restart: on-failure
+
+    # how to use tor with bitcoind
+    bitcoind:
+        image: lnliz/bitcoind:v29.0
+        volumes:
+            - ${PWD}/bitcoin:/.bitcoin
+            - ${PWD}/tor:/var/lib/tor
+        depends_on:
+            - tor
+
 ```
 
 By default this uses host networking and requires `data` and `run` folders to be created.
