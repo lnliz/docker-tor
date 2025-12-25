@@ -18,6 +18,7 @@ Tor service as a docker container, supporting multiple platforms/architectures (
 > **NOTE:** For an always up-to-date list see: https://hub.docker.com/r/lnliz/tor/tags
 
 * `latest`
+* `0.4.8.21`
 * `0.4.8.17`
 
 
@@ -38,7 +39,7 @@ docker run --rm -d \
             -v $PWD/data:/etc/tor \
             -v $PWD/data:/var/lib/tor \
             -v $PWD/run:/var/run/tor \
-            lnliz/tor:0.4.8.17
+            lnliz/tor:0.4.8.21
 
 ```
 This assumes you have a directory called `data` and a directory called `run` in the current `$PWD`. And the config file `torrc` should live in data.
@@ -52,7 +53,7 @@ version: "3.8"
 
 services:
     tor:
-        image: lnliz/tor:0.4.8.17
+        image: lnliz/tor:0.4.8.21
         container_name: tor
         volumes:
             - ${PWD}/tor:/etc/tor
@@ -77,7 +78,7 @@ A valid torrc is provided but you can mount your own:
 ```
 services:
     tor:
-        image: lnliz/tor:0.4.8.17
+        image: lnliz/tor:0.4.8.21
         volumes:
             - ./host-directory/torrc:/etc/tor/torrc
 ```
@@ -87,7 +88,7 @@ services:
 ```bash
 docker run --rm \
             --name tor \
-            lnliz/tor:0.4.7.17 \
+            lnliz/tor:0.4.7.21 \
             --hash-password passwordtogenerate
 ```
 
@@ -102,10 +103,10 @@ To grab a new version simply just tag a new version
 Example:
 
 ```bash
-git tag -s 0.4.8.17
+git tag -s 0.4.8.21
 ```
 
-Would Release ```0.4.8.17``` of tor.
+Would Release ```0.4.8.21``` of tor.
 
 As a maintainer, you should also update the documentation too.
 
