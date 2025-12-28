@@ -1,11 +1,12 @@
 ARG VERSION=0.4.8.21
+ARG DEBIAN_VERSION=13-slim
 
 ARG USER=toruser
 ARG UID=1000
 
 ARG DIR=/data
 
-FROM debian:12-slim AS preparer-base
+FROM debian:$DEBIAN_VERSION AS preparer-base
 
 RUN apt update
 RUN apt -y install gpg gpg-agent curl
@@ -35,7 +36,7 @@ RUN tar -xzf "/tor-$VERSION.tar.gz" && \
 
 FROM preparer-release AS preparer
 
-FROM debian:12-slim AS builder
+FROM debian:$DEBIAN_VERSION AS builder
 
 ARG VERSION
 
@@ -55,13 +56,13 @@ RUN ls -la /etc/tor
 RUN ls -la /var/lib
 RUN ls -la /var/lib/tor
 
-FROM debian:12-slim AS final
+FROM debian:$DEBIAN_VERSION AS final
 
 ARG VERSION
 ARG USER
 ARG DIR
 
-LABEL maintainer="nolim1t (@nolim1t)"
+LABEL maintainer="Liz Lightning (@lnliz)"
 
 # Libraries (linked)
 COPY  --from=builder /usr/lib /usr/lib

@@ -8,7 +8,7 @@
 
 Tor service as a docker container, supporting multiple platforms/architectures (armv6, armv7, arm64, amd64)
 
-> The work here was initially based on [lncm/docker-tor](https://github.com/lncm/docker-tor/), but has diverged since.
+> The work here was initially based on [lncm/docker-tor](https://github.com/lncm/docker-tor/), but has diverged much since.
 
 
 ## Usage instructions
