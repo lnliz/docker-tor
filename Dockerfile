@@ -1,11 +1,12 @@
 ARG VERSION=0.4.8.21
+ARG DEBIAN_VERSION=13-slim
 
 ARG USER=toruser
 ARG UID=1000
 
 ARG DIR=/data
 
-FROM debian:12-slim AS preparer-base
+FROM debian:$DEBIAN_VERSION AS preparer-base
 
 RUN apt update
 RUN apt -y install gpg gpg-agent curl
@@ -35,7 +36,7 @@ RUN tar -xzf "/tor-$VERSION.tar.gz" && \
 
 FROM preparer-release AS preparer
 
-FROM debian:12-slim AS builder
+FROM debian:$DEBIAN_VERSION AS builder
 
 ARG VERSION
 
@@ -55,13 +56,14 @@ RUN ls -la /etc/tor
 RUN ls -la /var/lib
 RUN ls -la /var/lib/tor
 
-FROM debian:12-slim AS final
+FROM debian:$DEBIAN_VERSION AS final
 
 ARG VERSION
 ARG USER
+ARG UID
 ARG DIR
 
-LABEL maintainer="nolim1t (@nolim1t)"
+LABEL maintainer="Liz Lightning (@lnliz)"
 
 # Libraries (linked)
 COPY  --from=builder /usr/lib /usr/lib
@@ -71,10 +73,15 @@ COPY  --from=builder /usr/local/bin/tor*  /usr/local/bin/
 COPY  ./torrc-dist /etc/tor/torrc
 
 # NOTE: Default GID == UID == 1000
-RUN adduser --disabled-password \
-            --home "$DIR/" \
-            --gecos "" \
-            "$USER"
+RUN groupadd -g $UID $USER && \
+    useradd -m -u $UID -g $USER -s /bin/bash -d $DIR $USER
+
+# Copy default torrc configuration
+RUN mkdir -p /etc/tor && \
+    chown "$USER":"$USER" /etc/tor
+COPY  --chown=$USER:$USER torrc-dist /etc/tor/torrc
+
+
 USER $USER
 
 VOLUME /etc/tor
