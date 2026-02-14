@@ -55,7 +55,7 @@ jobs:
 
       - name: Build ${{ env.APP }}
         run: >
-          docker build --no-cache .
+          docker build --no-cache --provenance=false .
           --build-arg "ARCH=${{ matrix.arch }}"
           --label     "arch=${{ matrix.arch }}"
           --label     "commit=${{ github.sha }}"
