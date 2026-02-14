@@ -1,21 +1,19 @@
-ARG VERSION=0.4.8.21
-ARG DEBIAN_VERSION=13-slim
+ARG VERSION=0.4.9.5
+ARG ALPINE_VERSION=3.23
 
 ARG USER=toruser
 ARG UID=1000
 
 ARG DIR=/data
 
-FROM debian:$DEBIAN_VERSION AS preparer-base
+FROM alpine:$ALPINE_VERSION AS preparer-base
 
-RUN apt update
-RUN apt -y install gpg gpg-agent curl
+RUN apk add --no-cache gnupg curl
 
-# Add tor key
-ENV KEYS="514102454D0A87DB0767A1EBBE6A0531C18A9179 B74417EDDF22AC9F9E90F49142E86A2A11F48D36 7A02B3521DC75C542BA015456AFEE6D49E92B601"
+ENV KEYS="514102454D0A87DB0767A1EBBE6A0531C18A9179 B74417EDDF22AC9F9E90F49142E86A2A11F48D36"
 
 #RUN curl -s https://openpgpkey.torproject.org/.well-known/openpgpkey/torproject.org/hu/kounek7zrdx745qydx6p59t9mqjpuhdf |gpg --import -
-RUN gpg --keyserver keyserver.ubuntu.com --recv-keys $KEYS 
+RUN gpg --keyserver keys.openpgp.org --recv-keys $KEYS
 
 RUN gpg --list-keys | tail -n +3 | tee /tmp/keys.txt && \
     gpg --list-keys $KEYS | diff - /tmp/keys.txt
@@ -30,18 +28,16 @@ ADD https://dist.torproject.org/tor-$VERSION.tar.gz ./
 
 RUN gpg --verify tor-$VERSION.tar.gz.sha256sum.asc
 RUN sha256sum -c tor-$VERSION.tar.gz.sha256sum
-# Extract
 RUN tar -xzf "/tor-$VERSION.tar.gz" && \
     rm  -f   "/tor-$VERSION.tar.gz"
 
 FROM preparer-release AS preparer
 
-FROM debian:$DEBIAN_VERSION AS builder
+FROM alpine:$ALPINE_VERSION AS builder
 
 ARG VERSION
 
-RUN apt update
-RUN apt -y install libevent-dev libssl-dev zlib1g-dev build-essential
+RUN apk add --no-cache libevent-dev openssl-dev zlib-dev build-base
 
 WORKDIR /tor-$VERSION/
 
@@ -56,7 +52,7 @@ RUN ls -la /etc/tor
 RUN ls -la /var/lib
 RUN ls -la /var/lib/tor
 
-FROM debian:$DEBIAN_VERSION AS final
+FROM alpine:$ALPINE_VERSION AS final
 
 ARG VERSION
 ARG USER
@@ -65,18 +61,14 @@ ARG DIR
 
 LABEL maintainer="Liz Lightning (@lnliz)"
 
-# Libraries (linked)
-COPY  --from=builder /usr/lib /usr/lib
-# Copy all the TOR files
+RUN apk add --no-cache libevent libssl3 zlib
+
 COPY  --from=builder /usr/local/bin/tor*  /usr/local/bin/
-# torrc config
 COPY  ./torrc-dist /etc/tor/torrc
 
-# NOTE: Default GID == UID == 1000
-RUN groupadd -g $UID $USER && \
-    useradd -m -u $UID -g $USER -s /bin/bash -d $DIR $USER
+RUN addgroup -g $UID $USER && \
+    adduser -D -u $UID -G $USER -s /bin/sh -h $DIR $USER
 
-# Copy default torrc configuration
 RUN mkdir -p /etc/tor && \
     chown "$USER":"$USER" /etc/tor
 COPY  --chown=$USER:$USER torrc-dist /etc/tor/torrc
