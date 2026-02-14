@@ -1,10 +1,9 @@
 # Tor as a Docker container
 
 
-[![Build on push](https://github.com/lnliz/docker-tor/workflows/Docker%20build%20on%20push/badge.svg)](https://github.com/lnliz/docker-tor/actions?query=workflow%3A%22Docker+build+on+push%22)
-[![Build on tag deploy](https://github.com/lnliz/docker-tor/workflows/Docker%20build%20on%20tag/badge.svg)](https://github.com/lnliz/docker-tor/actions?query=workflow%3A%22Docker+build+on+tag%22)
 ![Version](https://img.shields.io/github/v/release/lnliz/docker-tor?sort=semver) 
 ![Docker Pulls Count](https://img.shields.io/docker/pulls/lnliz/tor.svg?style=flat)
+![Docker Image Size](https://img.shields.io/docker/image-size/lnliz/tor.svg?style=flat)
 
 Tor service as a docker container, supporting multiple platforms/architectures (armv6, armv7, arm64, amd64)
 
