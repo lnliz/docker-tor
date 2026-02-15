@@ -1,7 +1,7 @@
-name: Build bitcoind on push, or PR to master
+name: Build tor on push, or PR to master
 
 env:
-  APP: bitcoind
+  APP: tor
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Build bitcoind
+    name: Build tor
     runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
 
     strategy:
