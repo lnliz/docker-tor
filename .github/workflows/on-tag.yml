@@ -2,14 +2,13 @@ name: Build & deploy on tag
 
 env:
   APP: tor
-  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
   # Capture groups within $TAG_FMT:
   #   \1 => TAG       vX.Y.Z[.P]+build<N>
   #   \2 => VERSION   vX.Y.Z[.P]
   #   \3 => ignore    (captures dot, and last number-group in version)
   #   \4 => BUILD     N
-  TAG_FMT: '^refs/tags/((v(.?[0-9]+){3,4})\+build([0-9]+))$'
+  TAG_FMT: '^refs/tags/((v[0-9]+(\.[0-9]+){2,3})\+build([0-9]+))$'
 
 
 on:
@@ -19,20 +18,36 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    runs-on: ${{ matrix.runner }}
 
     strategy:
+      fail-fast: false
       matrix:
-        arch:
-          - amd64
-          - arm32v7
-          - arm64v8
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm32v7
+            platform: linux/arm/v7
+            runner: ubuntu-24.04-arm
+          - arch: arm64v8
+            platform: linux/arm64/v8
+            runner: ubuntu-24.04-arm
 
     env:
       DOCKER_BUILDKIT: 1
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        if: matrix.arch == 'arm32v7'
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Setup environment
         run: |
@@ -43,20 +58,29 @@ jobs:
 
           VERSION="$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\2|")"
 
-          echo ::set-env name=TAG::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\1|")"
-          echo ::set-env name=BUILD::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\4|")"
+          {
+            echo "TAG=$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\1|")"
+            echo "VERSION=$VERSION"
+            echo "TOR_VERSION=${VERSION#v}"
+            echo "BUILD=$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\4|")"
+          } >> "$GITHUB_ENV"
 
       - name: Print ENV VARs set above
         run: |
           printf "    APP: %s\n"  "$APP"
           printf "   ARCH: %s\n"  "${{ matrix.arch }}"
+          printf "PLATFORM: %s\n" "${{ matrix.platform }}"
           printf "    TAG: %s\n"  "$TAG"
+          printf "VERSION: %s\n"  "$VERSION"
+          printf "TORVER: %s\n"   "$TOR_VERSION"
           printf "  BUILD: %s\n"  "$BUILD"
 
       - name: Build ${{ env.APP }}
         run: >
-          docker build --no-cache --provenance=false .
+          docker buildx build --load --no-cache --provenance=false .
+          --platform  "${{ matrix.platform }}"
           --build-arg "ARCH=${{ matrix.arch }}"
+          --build-arg "VERSION=$TOR_VERSION"
           --label     "arch=${{ matrix.arch }}"
           --label     "commit=${{ github.sha }}"
           --label     "git-tag=$TAG"
@@ -95,12 +119,14 @@ jobs:
     steps:
       - name: Setup environment
         run: |
-          echo ::set-env name=SLUG::"$(echo ${GITHUB_REPOSITORY,,} | sed 's/docker-//')"
-          echo ::set-env name=VERSION::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\2|")"
-          echo ::set-env name=BUILD::"$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\4|")"
+          {
+            echo "SLUG=$(echo "${GITHUB_REPOSITORY,,}" | sed 's/docker-//')"
+            echo "VERSION=$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\2|")"
+            echo "BUILD=$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\4|")"
+          } >> "$GITHUB_ENV"
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4.1.7
+        uses: actions/download-artifact@v4
         with:
           pattern: docker-images-*
           merge-multiple: true
@@ -110,7 +136,7 @@ jobs:
         run: sha256sum docker-images/*
 
       - name: Load images locally
-        run: find docker-images  -exec docker load -i "{}" \;
+        run: find docker-images -type f -name '*.tgz' -exec docker load -i "{}" \;
 
       # No short tags.
       - name: Version-tag all images
@@ -154,4 +180,3 @@ jobs:
         run: |
           (cd docker-images;  sha256sum *) >> ./SHA256SUMS
           cat ./SHA256SUMS
-
