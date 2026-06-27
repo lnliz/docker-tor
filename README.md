@@ -16,9 +16,9 @@ Tor service as a docker container, supporting multiple platforms/architectures (
 
 > **NOTE:** For an always up-to-date list see: https://hub.docker.com/r/lnliz/tor/tags
 
-* `latest`
-* `0.4.8.21`
-* `0.4.8.17`
+* `v0.4.9.11`
+* `v0.4.9.5`
+* `v0.4.8.21`
 
 
 
@@ -38,7 +38,7 @@ docker run --rm -d \
             -v $PWD/data:/etc/tor \
             -v $PWD/data:/var/lib/tor \
             -v $PWD/run:/var/run/tor \
-            lnliz/tor:0.4.8.21
+            lnliz/tor:v0.4.9.11
 
 ```
 This assumes you have a directory called `data` and a directory called `run` in the current `$PWD`. And the config file `torrc` should live in data.
@@ -48,17 +48,16 @@ This assumes you have a directory called `data` and a directory called `run` in 
 For your convenience, we have a [docker-compose](https://github.com/lnliz/docker-tor/blob/master/docker-compose.yml-dist) file available for you to use too.
 
 ```
-version: "3.8"
-
 services:
     tor:
-        image: lnliz/tor:0.4.8.21
+        image: lnliz/tor:v0.4.9.11
         container_name: tor
         volumes:
             - ${PWD}/tor:/etc/tor
             - ${PWD}/tor:/var/lib/tor
             - ${PWD}/tor-run:/var/run/tor
         restart: on-failure
+        network_mode: host
 
     # how to use tor with bitcoind
     bitcoind:
@@ -71,13 +70,13 @@ services:
 
 ```
 
-By default this uses host networking and requires `data` and `run` folders to be created.
+The command-line example uses host networking and expects `data` and `run` folders. The Compose example also uses host networking and mounts `tor` and `tor-run`.
 A valid torrc is provided but you can mount your own:
 
 ```
 services:
     tor:
-        image: lnliz/tor:0.4.8.21
+        image: lnliz/tor:v0.4.9.11
         volumes:
             - ./host-directory/torrc:/etc/tor/torrc
 ```
@@ -87,7 +86,7 @@ services:
 ```bash
 docker run --rm \
             --name tor \
-            lnliz/tor:0.4.7.21 \
+            lnliz/tor:v0.4.9.11 \
             --hash-password passwordtogenerate
 ```
 
@@ -95,17 +94,17 @@ docker run --rm \
 
 ## Maintainer release notes
 
-The github action takes in the current tag from [upstream](https://dist.torproject.org/) and then fetches, verifies and compiles this.
+The GitHub Action takes the Tor version from the git tag, then fetches, verifies, and compiles that upstream release from [dist.torproject.org](https://dist.torproject.org/).
 
-To grab a new version simply just tag a new version
+To grab a new version, tag a new release:
 
 Example:
 
 ```bash
-git tag -s 0.4.8.21
+git tag -s v0.4.9.11+build1
 ```
 
-Would Release ```0.4.8.21``` of tor.
+Would release `v0.4.9.11` of Tor.
 
 As a maintainer, you should also update the documentation too.
 
@@ -113,11 +112,10 @@ As a maintainer, you should also update the documentation too.
 
 > **Note** In order to trigger builds This repository uses the following environment variables:
 
-* `DOCKER_HUB_USER` - the username for docker hub
-* `DOCKER_USERNAME` - The username for dockerhub.
-* `DOCKER_PASSWORD` - The password for dockerhub
-* `DOCKER_TOKEN` - the token for docker hub which can push to this projecta (not used currently)
+* `DOCKER_HUB_USER` - the username for Docker Hub
+* `DOCKER_USERNAME` - The username for Docker Hub.
+* `DOCKER_PASSWORD` - The password for Docker Hub
+* `DOCKER_TOKEN` - the token for Docker Hub which can push to this project (not used currently)
 * `GITHUB_TOKEN` - The token of the current user (this is added automatically)
-* `GITHUB_ACTOR` - The user to login to docker.pkg.github.com
-* `GITHUB_REPOSITORY` - The repository pathname (used for the push to githubs package registry)
-
+* `GITHUB_ACTOR` - The user to log in to docker.pkg.github.com
+* `GITHUB_REPOSITORY` - The repository pathname (used for the push to GitHub's package registry)

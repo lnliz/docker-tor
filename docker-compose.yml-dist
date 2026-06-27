@@ -1,8 +1,6 @@
-version: "3.8"
-
 services:
     tor:
-        image: lnliz/tor:0.4.8.17
+        image: lnliz/tor:v0.4.9.11
         container_name: tor
         volumes:
             - ${PWD}/data:/etc/tor

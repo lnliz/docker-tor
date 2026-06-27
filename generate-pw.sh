@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -euo pipefail
 
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -8,12 +10,15 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 
-if [ $# -eq 0 ]; then
+if [ "$#" -eq 0 ]; then
     echo "Must specify an argument"
     echo "Usage: ${0} <password>"
     exit 1
 fi
-TORPASSWORD=`docker run --rm --name torpasswd lnliz/tor:0.4.8.17 --hash-password $1`
+
+IMAGE="${TOR_IMAGE:-lnliz/tor:v0.4.9.11}"
+TORPASSWORD="$(docker run --rm --name torpasswd "$IMAGE" --hash-password "$1")"
+
 echo "Add to your torrc config"
 echo ""
 echo "HashedControlPassword ${TORPASSWORD}"

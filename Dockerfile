@@ -1,4 +1,4 @@
-ARG VERSION=0.4.9.5
+ARG VERSION=0.4.9.11
 ARG ALPINE_VERSION=3.23
 
 ARG USER=toruser
@@ -44,7 +44,7 @@ WORKDIR /tor-$VERSION/
 COPY  --from=preparer /tor-$VERSION/  ./
 
 RUN ./configure --sysconfdir=/etc --datadir=/var/lib
-RUN make -j$(nproc)
+RUN make -j"$(nproc)"
 RUN make install
 
 RUN ls -la /etc
@@ -64,13 +64,11 @@ LABEL maintainer="Liz Lightning (@lnliz)"
 RUN apk add --no-cache libevent libssl3 zlib
 
 COPY  --from=builder /usr/local/bin/tor*  /usr/local/bin/
-COPY  ./torrc-dist /etc/tor/torrc
-
 RUN addgroup -g $UID $USER && \
     adduser -D -u $UID -G $USER -s /bin/sh -h $DIR $USER
 
-RUN mkdir -p /etc/tor && \
-    chown "$USER":"$USER" /etc/tor
+RUN mkdir -p /etc/tor /var/lib/tor && \
+    chown "$USER":"$USER" /etc/tor /var/lib/tor
 COPY  --chown=$USER:$USER torrc-dist /etc/tor/torrc
 
 
