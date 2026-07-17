@@ -15,6 +15,8 @@ ENV KEYS="514102454D0A87DB0767A1EBBE6A0531C18A9179 B74417EDDF22AC9F9E90F49142E86
 #RUN curl -s https://openpgpkey.torproject.org/.well-known/openpgpkey/torproject.org/hu/kounek7zrdx745qydx6p59t9mqjpuhdf |gpg --import -
 RUN gpg --keyserver keys.openpgp.org --recv-keys $KEYS
 
+RUN rm ~/.gnupg/public-keys.d/pubring.db.lock
+
 RUN gpg --list-keys | tail -n +3 | tee /tmp/keys.txt && \
     gpg --list-keys $KEYS | diff - /tmp/keys.txt
 
