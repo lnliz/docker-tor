@@ -16,6 +16,7 @@ Tor service as a docker container, supporting multiple platforms/architectures (
 
 > **NOTE:** For an always up-to-date list see: https://hub.docker.com/r/lnliz/tor/tags
 
+* `v0.4.9.15`
 * `v0.4.9.14`
 * `v0.4.9.11`
 * `v0.4.9.5`
@@ -28,58 +29,62 @@ Tor service as a docker container, supporting multiple platforms/architectures (
 
 ### Command Line
 
-To run this from the command line you would need to create an example [config file](https://github.com/torproject/tor/blob/master/src/config/torrc.sample.in) or use the [cut down config file](https://raw.githubusercontent.com/lnliz/docker-tor/master/torrc-dist) in this repo.
-
-Then you would need to run:
+Copy the supplied Tor configuration, then run Tor with a private data volume. This publishes the SOCKS port only on the host's loopback address:
 
 ```bash
+cp torrc-dist torrc
 docker run --rm -d \
-            --network host \
             --name tor \
-            -v $PWD/data:/etc/tor \
-            -v $PWD/data:/var/lib/tor \
-            -v $PWD/run:/var/run/tor \
-            lnliz/tor:v0.4.9.11
-
+            -p 127.0.0.1:9050:9050 \
+            -v "$PWD/torrc:/etc/tor/torrc:ro" \
+            -v tor-data:/var/lib/tor \
+            -v tor-control:/var/run/tor \
+            lnliz/tor:v0.4.9.15
 ```
-This assumes you have a directory called `data` and a directory called `run` in the current `$PWD`. And the config file `torrc` should live in data.
 
 ### Docker-compose
 
-For your convenience, we have a [docker-compose](https://github.com/lnliz/docker-tor/blob/master/docker-compose.yml-dist) file available for you to use too.
+The supplied [Compose file](https://github.com/lnliz/docker-tor/blob/master/docker-compose.yml-dist) runs Tor on a bridge network and publishes SOCKS only to the host's loopback address. Copy `torrc-dist` to `torrc` before starting it.
 
-```
+To connect Bitcoin Core to Tor, put both services on the same Compose network:
+
+```yaml
 services:
     tor:
-        image: lnliz/tor:v0.4.9.11
+        image: lnliz/tor:v0.4.9.15
         container_name: tor
         volumes:
-            - ${PWD}/tor:/etc/tor
-            - ${PWD}/tor:/var/lib/tor
-            - ${PWD}/tor-run:/var/run/tor
+            - ./torrc:/etc/tor/torrc:ro
+            - tor-data:/var/lib/tor
+            - tor-control:/var/run/tor
         restart: on-failure
-        network_mode: host
+        stop_grace_period: 10m30s
 
-    # how to use tor with bitcoind
     bitcoind:
         image: lnliz/bitcoind:v29.0
         volumes:
-            - ${PWD}/bitcoin:/.bitcoin
-            - ${PWD}/tor:/var/lib/tor
+            - ./bitcoin:/.bitcoin
+            - tor-control:/var/run/tor:ro
+        group_add:
+            - "1000"
         depends_on:
             - tor
 
+volumes:
+    tor-data:
+    tor-control:
 ```
 
-The command-line example uses host networking and expects `data` and `run` folders. The Compose example also uses host networking and mounts `tor` and `tor-run`.
-A valid torrc is provided but you can mount your own:
+Set `proxy=tor:9050` and `torcontrol=tor:9051` in Bitcoin Core's `bitcoin.conf`. Tor writes the control cookie to `/var/run/tor/control_auth_cookie`. The shared `tor-control` volume gives Bitcoin Core read access to that cookie without sharing Tor's data directory. The group ID `1000` matches the image's default Tor group; change it if you build the image with a different UID.
 
-```
+You can mount your own `torrc` instead of the supplied one:
+
+```yaml
 services:
     tor:
-        image: lnliz/tor:v0.4.9.11
+        image: lnliz/tor:v0.4.9.15
         volumes:
-            - ./host-directory/torrc:/etc/tor/torrc
+            - ./host-directory/torrc:/etc/tor/torrc:ro
 ```
 
 ### Generating Tor Passwords
@@ -87,7 +92,7 @@ services:
 ```bash
 docker run --rm \
             --name tor \
-            lnliz/tor:v0.4.9.11 \
+            lnliz/tor:v0.4.9.15 \
             --hash-password passwordtogenerate
 ```
 

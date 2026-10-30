@@ -1,11 +1,16 @@
 services:
     tor:
-        image: lnliz/tor:v0.4.9.11
+        image: lnliz/tor:v0.4.9.15
         container_name: tor
+        ports:
+            - "127.0.0.1:9050:9050"
         volumes:
-            - ${PWD}/data:/etc/tor
-            - ${PWD}/data:/var/lib/tor
-            - ${PWD}/run:/var/run/tor
+            - ./torrc:/etc/tor/torrc:ro
+            - tor-data:/var/lib/tor
+            - tor-control:/var/run/tor
         restart: on-failure
-        network_mode: host
         stop_grace_period: 10m30s
+
+volumes:
+    tor-data:
+    tor-control:

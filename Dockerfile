@@ -69,8 +69,8 @@ COPY  --from=builder /usr/local/bin/tor*  /usr/local/bin/
 RUN addgroup -g $UID $USER && \
     adduser -D -u $UID -G $USER -s /bin/sh -h $DIR $USER
 
-RUN mkdir -p /etc/tor /var/lib/tor && \
-    chown "$USER":"$USER" /etc/tor /var/lib/tor
+RUN mkdir -p /etc/tor /var/lib/tor /var/run/tor && \
+    chown "$USER":"$USER" /etc/tor /var/lib/tor /var/run/tor
 COPY  --chown=$USER:$USER torrc-dist /etc/tor/torrc
 
 
